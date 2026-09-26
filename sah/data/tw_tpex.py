@@ -6,7 +6,8 @@
 - 上櫃個股日K（單月）     https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?code=6213&date=YYYY/MM/DD&response=json
 - 三大法人買賣超（日）    https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?type=Daily&sect=EW&date=YYYY/MM/DD&response=json
 
-TPEx 網站於 2024 年改版，舊 /web/ 路徑已失效；上述為改版後端點。
+TPEx 網站於 2024 年改版，舊 /web/ 路徑已失效；上述為改版後端點（實測 2026/09 可用）。
+注意：已轉上市的股票（如 6213 聯茂）在此查詢會回空表，請改用 tw_twse。
 若端點再次變動，優先改用 tw_finmind 作為備援。
 """
 from __future__ import annotations

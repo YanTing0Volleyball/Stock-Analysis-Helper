@@ -85,3 +85,25 @@ def piotroski_f_score(cur: dict, prev: dict) -> int:
     s += gm_c > gm_p                                      # 8 毛利率改善
     s += cur["revenue"] / cur["assets"] > prev["revenue"] / prev["assets"]  # 9 資產週轉率改善
     return int(s)
+
+
+def revenue_momentum(monthly_revenue: pd.Series, yoy_threshold: float = 20.0) -> pd.DataFrame:
+    """
+    台股月營收動能（2026-09 驗證為最強單一訊號，docs/09 §4）。
+    輸入：月營收 Series（index 為月份）。輸出欄位：
+      yoy_pct、yoy_prev、accelerating（YoY 高於前月）、new_12m_high（創 12 月新高）、
+      signal：+1（YoY ≥ 門檻且加速，或創 12 月新高且 YoY ≥ 門檻）、-1（YoY < 0）、0 其他
+    使用時機：每月 10 日公布後的第一個交易日；效果持續約 60 個交易日。
+    """
+    rev = monthly_revenue.astype(float)
+    out = pd.DataFrame(index=rev.index)
+    out["yoy_pct"] = rev.pct_change(12) * 100
+    out["yoy_prev"] = out["yoy_pct"].shift(1)
+    out["accelerating"] = out["yoy_pct"] > out["yoy_prev"]
+    out["new_12m_high"] = rev >= rev.rolling(12).max()
+    sig = pd.Series(0, index=rev.index, dtype=int)
+    strong = (out["yoy_pct"] >= yoy_threshold) & (out["accelerating"] | out["new_12m_high"])
+    sig[strong] = 1
+    sig[out["yoy_pct"] < 0] = -1
+    out["signal"] = sig
+    return out

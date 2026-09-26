@@ -2,6 +2,7 @@
 Stooq 免費日K CSV（https://stooq.com），無需金鑰，作為 Yahoo 備援。
 - 端點：https://stooq.com/q/d/l/?s=aapl.us&i=d  （台股：2330.tw）
 - 價格為分割還原但未含股利還原；每日有下載次數上限（約數百次），超過會回「Exceeded the daily hits limit」。
+- 實測 2026/09：從雲端主機連線會被直接重設（connection reset），住宅網路才可用；伺服器端請勿依賴此來源。
 """
 from __future__ import annotations
 

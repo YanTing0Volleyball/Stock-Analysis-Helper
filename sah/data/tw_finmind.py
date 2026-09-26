@@ -1,7 +1,9 @@
 """
 FinMind 台股整合 API（https://finmindtrade.com）。
-- 免費：未登入約 300 次/小時，註冊取得 token 後 600 次/小時；付費方案再提高（CP 值高，適合個人）。
-- 涵蓋：日K、還原權息、三大法人、融資融券、借券、月營收、財報、股利、董監持股等。
+- 免費：未登入約 300 次/小時，註冊取得 token 後 600 次/小時；付費 Sponsor 方案再提高。
+- 涵蓋：日K、三大法人、融資融券、借券、月營收、財報、股利、董監持股等。
+- ⚠️ 實測 2026/09：**TaiwanStockPriceAdj（還原權息價）為付費方案限定**（回 400 "Your level is free"）。
+  免費的台股還原價請改用 us_yahoo.fetch_daily_ohlcv("2330.TW") 的 adj_close；或自行以 TaiwanStockDividend 還原。
 - 為 TWSE/TPEx/MOPS 直連的備援與統一入口，欄位乾淨、上市上櫃同一介面。
 
 主要 dataset：
@@ -40,7 +42,7 @@ def fetch_dataset(dataset: str, data_id: str | None = None, start: str | None = 
 
 
 def fetch_daily_ohlcv(stock_id: str, start: str, end: str | None = None, adjusted: bool = False) -> pd.DataFrame:
-    """日K（上市＋上櫃通用）。adjusted=True 取還原權息價（適合長期回測）。"""
+    """日K（上市＋上櫃通用）。adjusted=True 取還原權息價（**FinMind 付費方案限定**；免費用戶請用 Yahoo）。"""
     ds = "TaiwanStockPriceAdj" if adjusted else "TaiwanStockPrice"
     df = fetch_dataset(ds, stock_id, start, end)
     if df.empty:

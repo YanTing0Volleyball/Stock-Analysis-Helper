@@ -134,6 +134,7 @@ def fetch_institutional(date: str | dt.date) -> pd.DataFrame:
             "total_net": col("三大法人"),
         }
     )
+    out["code"] = df["code"]
     out["date"] = pd.Timestamp(date)
     return out.set_index("code")
 
@@ -152,21 +153,21 @@ def fetch_margin(date: str | dt.date) -> pd.DataFrame:
     # 個股表在 tables 中最後一張（第一張是市場合計）
     tables = js.get("tables") or [{"fields": js.get("fields"), "data": js.get("data")}]
     tbl = tables[-1]
-    df = pd.DataFrame(tbl["data"], columns=tbl["fields"])
-    cols = list(df.columns)
-    # 官方欄位順序：股票代號, 股票名稱, 融資(買進, 賣出, 現金償還, 前日餘額, 今日餘額, 限額), 融券(...)
+    # 官方欄位有重複名稱（融資／融券各有 買進、賣出…），故以位置取值：
+    # 0 代號, 1 名稱, 2~7 融資(買進, 賣出, 現金償還, 前日餘額, 今日餘額, 限額), 8~13 融券(同), 14 資券互抵, 15 註記
+    df = pd.DataFrame(tbl["data"])
     out = pd.DataFrame(
         {
-            "name": df[cols[1]].str.strip(),
-            "margin_prev": df[cols[5]].map(to_float),
-            "margin_balance": df[cols[6]].map(to_float),
-            "short_prev": df[cols[11]].map(to_float),
-            "short_balance": df[cols[12]].map(to_float),
+            "name": df.iloc[:, 1].str.strip(),
+            "margin_prev": df.iloc[:, 5].map(to_float),
+            "margin_balance": df.iloc[:, 6].map(to_float),
+            "short_prev": df.iloc[:, 11].map(to_float),
+            "short_balance": df.iloc[:, 12].map(to_float),
         }
     )
     out["margin_change"] = out["margin_balance"] - out["margin_prev"]
     out["short_change"] = out["short_balance"] - out["short_prev"]
-    out["code"] = df[cols[0]].str.strip()
+    out["code"] = df.iloc[:, 0].str.strip()
     out["date"] = pd.Timestamp(date)
     return out.set_index("code")
 
@@ -174,6 +175,8 @@ def fetch_margin(date: str | dt.date) -> pd.DataFrame:
 def fetch_realtime(codes: list[str], market: str = "tse") -> pd.DataFrame:
     """
     即時報價（MIS，約 5 秒延遲）。market='tse' 上市、'otc' 上櫃。
+    注意：MIS 對雲端／資料中心 IP 會回 502「因為安全性考量」拒絕，實測僅住宅或券商網路可用；
+    伺服器部署請改用券商 API（Fugle / Shioaji）取得即時報價。
     回傳欄位：name, last, open, high, low, prev_close, volume(張), bid, ask, time
     """
     ex_ch = "|".join(f"{market}_{c}.tw" for c in codes)

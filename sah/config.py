@@ -21,6 +21,7 @@ class Settings:
             "mis.twse.com.tw": 1.0,
             "www.tpex.org.tw": 3.0,
             "mops.twse.com.tw": 5.0,
+            "mopsov.twse.com.tw": 5.0,
             "data.sec.gov": 0.15,  # SEC 上限 10 req/s
             "api.finmindtrade.com": 0.5,
         }

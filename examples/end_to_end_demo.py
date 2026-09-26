@@ -12,28 +12,24 @@ from sah.backtest import TW_STOCK, performance_summary, run_backtest
 from sah.data.local_csv import load_ohlcv_csv
 from sah.indicators import atr
 from sah.risk import PortfolioLimits, atr_position_size, stop_levels, tw_lot_round
-from sah.signals import bollinger_mean_reversion, breakout_signal, regime_filter
+from sah.signals import ma_cross_signal
 from sah.signals.composite import score_to_action, technical_score
-from sah.signals.technical import atr_trailing_stop
 
 
-def regime_switch_strategy(df: pd.DataFrame) -> pd.Series:
-    """多頭＋趨勢 → 突破策略；多頭＋盤整 → 布林均值回歸；空頭 → 空手。再套 ATR 移動停損。"""
-    reg = regime_filter(df)
-    trend_pos = breakout_signal(df)
-    mr_pos = bollinger_mean_reversion(df)
-    pos = pd.Series(0, index=df.index)
-    pos[reg["bull"] & reg["trend"]] = trend_pos[reg["bull"] & reg["trend"]]
-    pos[reg["bull"] & ~reg["trend"]] = mr_pos[reg["bull"] & ~reg["trend"]]
-    return atr_trailing_stop(df, pos)
+def core_trend_strategy(df: pd.DataFrame) -> pd.Series:
+    """
+    核心策略（依 docs/09 驗證結果）：50/200 均線多頭排列持有，否則空手。
+    早期版本的「regime 切換（突破／布林）＋ATR 停損」在真實資料上表現不佳，已改為此版本。
+    """
+    return ma_cross_signal(df, 50, 200)
 
 
 def main(path: str) -> None:
     df = load_ohlcv_csv(path)
-    pos = regime_switch_strategy(df)
+    pos = core_trend_strategy(df)
     res = run_backtest(df, pos, cost=TW_STOCK, lot_size=1000)
     summ = performance_summary(res.returns, res.equity, res.trades, res.positions)
-    print("== 回測 (regime switch + ATR stop, 台股成本) ==")
+    print("== 回測 (均線 50/200, 台股成本) ==")
     for k in ("total_return_pct", "cagr_pct", "sharpe", "max_drawdown_pct", "n_trades", "win_rate_pct", "profit_factor", "exposure_pct"):
         print(f"  {k:18s} {summ.get(k)}")
 

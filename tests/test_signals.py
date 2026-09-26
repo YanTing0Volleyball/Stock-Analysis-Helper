@@ -69,5 +69,5 @@ def test_scores_and_actions(ohlcv):
     w = CompositeWeights.long_term()
     expected = (80 * w.technical + 60 * w.fundamental) / (w.technical + w.fundamental)
     assert np.isclose(total, expected)
-    assert score_to_action(75) == "買進" and score_to_action(35, in_position=True) == "賣出"
+    assert score_to_action(66) == "買進" and score_to_action(58) == "觀察" and score_to_action(35, in_position=True) == "賣出"
     assert score_to_action(55, in_position=True) == "續抱"

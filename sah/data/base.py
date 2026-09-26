@@ -16,8 +16,15 @@ import requests
 from ..config import settings
 
 
+BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+
 class DataSourceError(RuntimeError):
     """資料來源回傳錯誤或格式不符。"""
+
+
+class PermanentError(DataSourceError):
+    """不應重試的錯誤（4xx：權限不足、參數錯誤、付費方案限制）。"""
 
 
 class HttpClient:
@@ -63,6 +70,11 @@ class HttpClient:
             resp.url = url
             return resp
 
+        host = urlparse(url).netloc
+        if headers is None or "User-Agent" not in headers:
+            # TWSE / TPEx / MOPS 的 WAF 會擋非瀏覽器 UA；SEC 則要求帶聯絡資訊的 UA（settings.user_agent）
+            if host.endswith(("twse.com.tw", "tpex.org.tw")):
+                headers = {**(headers or {}), "User-Agent": BROWSER_UA}
         last_exc: Exception | None = None
         for attempt in range(retries):
             try:
@@ -70,11 +82,19 @@ class HttpClient:
                 resp = self.session.get(url, params=params, headers=headers, timeout=settings.timeout)
                 if resp.status_code in (429, 500, 502, 503, 504):
                     raise DataSourceError(f"HTTP {resp.status_code} from {url}")
+                if 400 <= resp.status_code < 500:
+                    # 客戶端錯誤（權限、參數）重試無意義，直接帶回伺服器訊息
+                    raise PermanentError(f"HTTP {resp.status_code} from {url}: {resp.text[:300]}")
                 resp.raise_for_status()
+                if b"FOR SECURITY REASONS, THIS PAGE CAN NOT BE ACCESSED" in resp.content[:2000]:
+                    # TWSE 系列網站 (MOPS/MIS) 的 WAF 擋頁：非瀏覽器 User-Agent 或雲端 IP 會被拒
+                    raise DataSourceError(f"被 WAF 拒絕 (請改用瀏覽器 User-Agent 或非雲端 IP): {url}")
                 if cache_ttl:
                     self.cache_dir.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(resp.content)
                 return resp
+            except PermanentError:
+                raise
             except (requests.RequestException, DataSourceError) as exc:  # noqa: PERF203
                 last_exc = exc
                 time.sleep(2**attempt)

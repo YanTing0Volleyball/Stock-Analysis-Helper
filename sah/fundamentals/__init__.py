@@ -9,11 +9,12 @@ from .metrics import (
     peg_ratio,
     piotroski_f_score,
     revenue_growth_yoy,
+    revenue_momentum,
     roe,
 )
 from .screener import FundamentalCriteria, screen
 
 __all__ = [
     "pe_ratio", "peg_ratio", "roe", "dividend_yield", "fcf_yield", "graham_number", "net_debt_to_equity",
-    "revenue_growth_yoy", "cagr", "piotroski_f_score", "FundamentalCriteria", "screen",
+    "revenue_growth_yoy", "revenue_momentum", "cagr", "piotroski_f_score", "FundamentalCriteria", "screen",
 ]

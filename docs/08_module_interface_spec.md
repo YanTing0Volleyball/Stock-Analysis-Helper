@@ -56,7 +56,7 @@ pandas.Series, index 與 OHLCV 對齊, 值 0/1 (或 0~1 比例; -1 放空僅美�
 | `sah.data.us_edgar` | `fetch_fundamentals_summary(ticker)`、`fetch_company_facts`、`facts_to_series`、`fetch_recent_filings` | |
 | `sah.data.us_fred` | `fetch_series(series_id, start)` | → Series |
 | `sah.indicators` | `sma ema wma macd adx rsi kd roc williams_r bbands atr keltner historical_volatility obv vwap volume_ratio mfi` | Series/DataFrame → Series/DataFrame |
-| `sah.fundamentals` | `pe_ratio peg_ratio roe dividend_yield fcf_yield graham_number piotroski_f_score ...`、`screen(table, FundamentalCriteria)` | |
+| `sah.fundamentals` | `pe_ratio peg_ratio roe dividend_yield fcf_yield graham_number piotroski_f_score revenue_momentum ...`、`screen(table, FundamentalCriteria)` | |
 | `sah.chips` | `institutional_features(inst, volume)`、`margin_features(margin, close)`、`insider_features(trades)`、`short_interest_features(...)` | |
 | `sah.sentiment` | `fetch_rss_headlines(url)`、`keyword_sentiment(text)`、`sentiment_score_series(headlines)` | |
 | `sah.signals` | `kd_signal macd_signal ma_cross_signal breakout_signal bollinger_mean_reversion` → 部位 Series；`kd_state`、`momentum_12_1`、`regime_filter`、`atr_trailing_stop` | |
@@ -103,9 +103,9 @@ print(performance_summary(res.returns, res.equity, res.trades, res.positions))
 7. **APP 端**：只消費 JSON（score、action、stop、shares、reasons），不做任何計算，確保邏輯單一來源。
 
 ## 6. 已知待辦（後續模型接手）
-- [ ] 在有網路環境執行 `examples/smoke_test_live.py`，修正任何端點欄位差異。
+- [x] 在有網路環境執行 `examples/smoke_test_live.py`，修正端點欄位差異（2026-09-26 完成，見 docs/02 §0）。
 - [ ] Form 4 XML 解析 → `insider_features` 的輸入表。
-- [ ] 全市場 10 年回測校準 `composite_score` 門檻與權重（docs/06 §4）。
+- [x] 以 39 檔台股＋30 檔美股 10 年資料做第一輪校準（docs/09）；待擴大至全市場與 walk-forward。
 - [ ] 多檔投組回測與相關性控制。
 - [ ] 交易日曆（TWSE 休市表、NYSE 假日）模組。
 - [ ] 券商 API（Shioaji／IBKR）下單介面，與 `PortfolioLimits.check` 串接為下單前檢查。

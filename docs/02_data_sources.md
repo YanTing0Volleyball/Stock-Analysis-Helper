@@ -2,7 +2,26 @@
 
 > 原則：**官方免費來源優先**（TWSE／TPEx／MOPS／SEC／FRED），第三方免費整合 API（FinMind）作為統一備援，付費來源只在需要即時逐筆或高頻資料時使用。
 > 所有來源皆透過 `sah.data.base.HttpClient` 存取（統一限流、重試、磁碟快取）。
-> ⚠️ 本次開發環境無法連外，各端點解析依官方文件實作；正式上線前請在有網路的機器執行 `python examples/smoke_test_live.py` 驗證。
+> 各端點已於 2026-09-26 從雲端主機實測（`python examples/smoke_test_live.py`），結果見 §0。
+
+## 0. 實測結果（2026-09-26，雲端主機 IP）
+
+| 來源 | 結果 | 備註／修正 |
+|---|---|---|
+| TWSE 日K `STOCK_DAY` | ✅ | WAF 會擋非瀏覽器 User-Agent，`HttpClient` 對 twse/tpex 網域自動改用瀏覽器 UA |
+| TWSE OpenAPI `STOCK_DAY_ALL` / `BWIBBU_ALL` | ✅（首次）→ ⚠️ 短時間多次請求後被暫時封鎖 | 每日只需抓 1 次，務必啟用快取；被擋時回 HTML 而非 JSON |
+| TWSE 三大法人 `T86` | ✅ | 欄位為「外陸資買賣超股數(不含外資自營商)」等，已對應 |
+| TWSE 融資融券 `MI_MARGN` | ✅ | 回傳兩張表且欄名重複（融資／融券各有買進、賣出…），改以欄位位置解析 |
+| TWSE 即時 `MIS getStockInfo` | ❌ 502「因為安全性考量」 | **雲端 IP 被拒**，住宅網路可用；伺服器端請改券商 API |
+| TPEx 日K `tradingStock` | ✅ | 6213 聯茂已轉上市，改測 6488；已轉上市股票在 TPEx 回空表 |
+| TPEx OpenAPI 全市場、三大法人 | ✅ | |
+| MOPS 月營收 | ✅ | 舊 `mops.twse.com.tw/nas/...` 回 404，改用 **`mopsov.twse.com.tw`**；需 lxml 解析 big5 HTML |
+| FinMind 日K／法人／月營收 | ✅ | **`TaiwanStockPriceAdj` 還原價為付費限定**（HTTP 400 "Your level is free"）；免費請用 Yahoo `2330.TW` adj_close |
+| Yahoo chart API（美股、台股 .TW） | ✅ | 直接呼叫回 429；需先取 cookie＋crumb（`fc.yahoo.com` → `getcrumb` → `query2`），已實作 |
+| Stooq | ❌ connection reset | 雲端 IP 被拒；僅住宅網路可用，不列為伺服器備援 |
+| SEC EDGAR companyfacts／submissions | ✅ | 同一科目跨年代會換標籤（Apple 營收 2018 前 `SalesRevenueNet`），已合併多標籤 |
+| FRED CSV | ✅ | |
+| Yahoo Finance RSS | ✅ | |
 
 ## 1. 台股
 
@@ -13,13 +32,13 @@
 | 本益比／殖利率／淨值比 | TWSE OpenAPI `BWIBBU_ALL` | 免費 | 每日 | `tw_twse.fetch_valuation_all` | ★★★★★ 基本面快速篩選 |
 | 三大法人買賣超 | TWSE `T86`；TPEx `insti/dailyTrade` | 免費 | 約 15:00 | `tw_twse.fetch_institutional`、`tw_tpex.fetch_institutional` | ★★★★★ 台股最有價值的籌碼資料 |
 | 融資融券 | TWSE `MI_MARGN` | 免費 | 約 15:30~16:00 | `tw_twse.fetch_margin` | ★★★★ |
-| 即時報價 | TWSE MIS `getStockInfo.jsp` | 免費、約 5 秒延遲、一次最多約 100 檔；勿高頻輪詢 | 盤中 | `tw_twse.fetch_realtime` | ★★★ 只適合盤中監控，不適合當沖策略 |
+| 即時報價 | TWSE MIS `getStockInfo.jsp` | 免費、約 5 秒延遲、一次最多約 100 檔；**拒絕雲端 IP** | 盤中 | `tw_twse.fetch_realtime` | ★★ 只能在本機／住宅網路盤中監控；伺服器改用券商 API |
 | 上櫃日K | TPEx `afterTrading/tradingStock` | 免費；網站 2024 改版，路徑可能再變 | 14:00 後 | `tw_tpex.fetch_daily_ohlcv` | ★★★ 建議以 FinMind 備援 |
 | 月營收 | MOPS `t21sc03` 彙總頁 | 免費；頁面 big5、限流嚴格 | 每月 10 日前陸續公布 | `tw_mops.fetch_monthly_revenue` | ★★★★ 波段／長線核心輸入 |
 | 財報（損益、資產負債、現金流） | MOPS（表單、難爬）→ 改用 FinMind | FinMind 免費額度足夠 | 季報截止日 | `tw_finmind.fetch_financial_statements` / `fetch_balance_sheet` | ★★★★ |
-| 整合 API | **FinMind** `api.finmindtrade.com/api/v4/data` | 免費：未註冊約 300 次/時；註冊 token 600 次/時；Sponsor 方案（約 NT$ 300~/月）更高額度＋即時資料 | 日資料約 16:00~18:00 | `tw_finmind.*` | ★★★★★ **CP 值最高**，欄位乾淨、上市櫃統一；缺點是非官方、需注意同步延遲 |
+| 整合 API | **FinMind** `api.finmindtrade.com/api/v4/data` | 免費：未註冊約 300 次/時；註冊 token 600 次/時；Sponsor 方案（約 NT$ 300~/月）更高額度＋即時資料＋**還原權息價** | 日資料約 16:00~18:00 | `tw_finmind.*` | ★★★★★ 法人／月營收／財報的免費首選；**還原價需付費**，免費用 Yahoo 補 |
 | 即時／逐筆、下單 | 永豐 **Shioaji**、富果 **Fugle** MarketData/Trading API | 開戶免費使用；Fugle 免費方案有請求限制 | 即時 | 未實作（交易執行屬後續模型） | ★★★★ 進入實盤時再接 |
-| 還原權息價 | FinMind `TaiwanStockPriceAdj`；Yahoo `2330.TW` adj_close | 免費 | 日 | `tw_finmind.fetch_daily_ohlcv(adjusted=True)`、`us_yahoo` | 長期回測**必須**使用 |
+| 還原權息價 | Yahoo `2330.TW`／`6488.TWO` adj_close（免費）；FinMind `TaiwanStockPriceAdj`（付費） | Yahoo 免費 | 日 | `us_yahoo.fetch_daily_ohlcv("2330.TW")` | 長期回測**必須**使用；Yahoo 只還原 close，OHLC 需自行乘上 adj_close/close |
 | 借券賣出、董監持股、股利 | FinMind `TaiwanStockSecuritiesLending`、`TaiwanStockShareholding`、`TaiwanStockDividend` | 免費 | 日／月 | `tw_finmind.fetch_dataset(...)` | ★★★ 進階籌碼 |
 | 總經（景氣燈號、CPI、外銷訂單） | 國發會／主計總處 開放資料；FinMind `TaiwanBusinessIndicator` | 免費 | 月 | 未實作（可用 `fetch_dataset`） | ★★ 長線擇時參考 |
 | 新聞 | 鉅亨網 RSS、經濟日報 RSS、FinMind `TaiwanStockNews`、MOPS 重大訊息 | 免費 | 即時 | `sentiment.fetch_rss_headlines` | ★★★ 雜訊高，只做事件偵測 |
@@ -29,7 +48,7 @@
 | 資料 | 來源 | 費用／限制 | 模組 | 評價 |
 |---|---|---|---|---|
 | 日K＋還原價 | **Yahoo Finance chart API**（非官方） | 免費；偶爾 429 或改版；亦可用 `yfinance` 套件 | `us_yahoo.fetch_daily_ohlcv` | ★★★★ 最方便，生產環境需備援 |
-| 日K 備援 | **Stooq** CSV | 免費；每日下載次數上限 | `us_stooq.fetch_daily_ohlcv` | ★★★ |
+| 日K 備援 | **Stooq** CSV | 免費；每日下載次數上限；**拒絕雲端 IP** | `us_stooq.fetch_daily_ohlcv` | ★★ 僅本機可用 |
 | 基本面（XBRL 全部科目） | **SEC EDGAR companyfacts** | 免費、官方；需含 email 的 User-Agent、≤10 req/s | `us_edgar.fetch_fundamentals_summary` | ★★★★★ 最權威，但科目標籤需對應 |
 | 內部人交易 Form 4、13F、8-K | SEC EDGAR submissions／full-text search | 免費；Form 4 明細需解析 XML | `us_edgar.fetch_recent_filings`（索引） | ★★★★ 內部人叢集買進有研究支持 |
 | 內部人彙整 | OpenInsider（網頁匯出） | 免費、非官方 | 未實作 | ★★★ |
@@ -43,7 +62,7 @@
 
 ## 3. 選型建議（依開發階段）
 
-1. **MVP／回測研究**：FinMind（台）＋ Yahoo（美）＋ EDGAR（美基本面）＋ TWSE OpenAPI（台估值）。全部免費，一天更新一次即可。
+1. **MVP／回測研究**：價格用 Yahoo（台股 .TW 還原價＋美股），法人／月營收／財報用 FinMind，美股基本面用 EDGAR，台股估值用 TWSE OpenAPI。全部免費，一天更新一次即可。
 2. **每日推播上線**：加上 TWSE T86／MI_MARGN 直連（避免 FinMind 延遲）、MOPS 月營收；FinMind 註冊 token。
 3. **實盤下單**：接 Shioaji（台）與 IBKR API 或複委託券商 API（美）；即時資料改由券商提供，成本為零。
 4. **付費升級時機**：當需要 (a) 分鐘 K 回測、(b) 逐筆成交、(c) 一個 API 同時覆蓋台美股，再考慮 FinMind Sponsor、Fugle 付費方案或 EODHD。

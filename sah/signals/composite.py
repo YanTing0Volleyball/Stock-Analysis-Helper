@@ -15,18 +15,29 @@ import pandas as pd
 
 @dataclass
 class CompositeWeights:
-    technical: float = 0.4
-    fundamental: float = 0.2
-    chips: float = 0.25
+    """
+    權重依 2026-09 真實資料驗證（docs/09）調整：
+    - 台股月營收動能（fundamental_score 內的 revenue_yoy）是最強單一訊號 → 基本面權重上調
+    - 法人籌碼僅累計量有微弱效果 → 籌碼權重下修
+    - 技術分數在台股有單調預測力、在美股大型股反而略呈均值回歸 → 美股請用 us_large_cap()
+    """
+
+    technical: float = 0.35
+    fundamental: float = 0.35
+    chips: float = 0.15
     sentiment: float = 0.15
 
     @classmethod
     def short_term(cls) -> "CompositeWeights":
-        return cls(technical=0.5, fundamental=0.05, chips=0.3, sentiment=0.15)
+        return cls(technical=0.45, fundamental=0.25, chips=0.15, sentiment=0.15)
 
     @classmethod
     def long_term(cls) -> "CompositeWeights":
-        return cls(technical=0.2, fundamental=0.55, chips=0.15, sentiment=0.10)
+        return cls(technical=0.15, fundamental=0.60, chips=0.10, sentiment=0.15)
+
+    @classmethod
+    def us_large_cap(cls) -> "CompositeWeights":
+        return cls(technical=0.20, fundamental=0.55, chips=0.10, sentiment=0.15)
 
     def normalized(self) -> dict[str, float]:
         d = {"technical": self.technical, "fundamental": self.fundamental, "chips": self.chips, "sentiment": self.sentiment}
@@ -56,7 +67,7 @@ def technical_score(df: pd.DataFrame) -> pd.Series:
 
 def fundamental_score(row: pd.Series | dict) -> float:
     """
-    基本面 0~100（單一時點）。輸入鍵：pe, pb, roe, revenue_yoy, debt_to_equity, f_score, dividend_yield（可缺）。
+    基本面 0~100（單一時點）。輸入鍵：pe, pb, roe, revenue_yoy, revenue_yoy_prev, debt_to_equity, f_score, dividend_yield（可缺）。
     """
     r = dict(row)
     s, w = 0.0, 0.0
@@ -68,12 +79,18 @@ def fundamental_score(row: pd.Series | dict) -> float:
 
     if not _isnan(r.get("pe")):
         pe = r["pe"]
-        add(100 if 0 < pe <= 12 else 70 if pe <= 18 else 40 if pe <= 25 else 10, 20)
+        add(100 if 0 < pe <= 12 else 70 if pe <= 18 else 40 if pe <= 25 else 10, 15)
     if not _isnan(r.get("roe")):
-        add(min(100, max(0, r["roe"] / 0.20 * 100)), 20)
+        add(min(100, max(0, r["roe"] / 0.20 * 100)), 15)
     if not _isnan(r.get("revenue_yoy")):
+        # 台股驗證：YoY > 20% 公布後 60 日超額 +2.5%、71% 股票為正；加速再 +0.5%；YoY < 0 為負 → 權重 30
         g = r["revenue_yoy"]
-        add(100 if g >= 20 else 70 if g >= 10 else 50 if g >= 0 else 10, 20)
+        base = 100 if g >= 20 else 70 if g >= 10 else 50 if g >= 0 else 10
+        if not _isnan(r.get("revenue_yoy_prev")) and g > r["revenue_yoy_prev"] and g >= 20:
+            base = 100
+        elif not _isnan(r.get("revenue_yoy_prev")) and g < r["revenue_yoy_prev"]:
+            base = max(0, base - 15)
+        add(base, 30)
     if not _isnan(r.get("f_score")):
         add(r["f_score"] / 9 * 100, 20)
     if not _isnan(r.get("debt_to_equity")):
@@ -123,8 +140,9 @@ def composite_score(technical: pd.Series | float | None = None, fundamental: pd.
 def score_to_action(score: float, in_position: bool = False) -> str:
     """
     分數 → 建議動作（帶遲滯，避免頻繁翻轉）：
-      未持有：≥70 買進、60~70 觀察、<60 不動
-      已持有：≤40 賣出、40~50 減碼、>50 續抱
+      未持有：≥65 買進、55~64 觀察、<55 不動
+      已持有：≤40 賣出、41~50 減碼、>50 續抱
+    門檻依 docs/09 §5：台股 technical_score 66~80 為未來報酬最佳區間，81+ 略降（勿追高，但續抱）。
     """
     if in_position:
         if score <= 40:
@@ -132,9 +150,9 @@ def score_to_action(score: float, in_position: bool = False) -> str:
         if score <= 50:
             return "減碼"
         return "續抱"
-    if score >= 70:
+    if score >= 65:
         return "買進"
-    if score >= 60:
+    if score >= 55:
         return "觀察"
     return "不動作"
 

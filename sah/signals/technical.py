@@ -44,8 +44,11 @@ def kd_signal(df: pd.DataFrame, n: int = 9, oversold: float = 20, overbought: fl
     return _to_position(buy, sell, df.index)
 
 
-def macd_signal(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9, zero_filter: bool = True) -> pd.Series:
-    """DIF 上穿 DEA 買、下穿賣。zero_filter=True 只接受零軸上方的黃金交叉（多頭趨勢中的回檔買點）。"""
+def macd_signal(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9, zero_filter: bool = False) -> pd.Series:
+    """
+    DIF 上穿 DEA 買、下穿賣。zero_filter=True 只接受零軸上方的黃金交叉。
+    2026-09 真實資料驗證（docs/09）：零軸過濾在台美股都**降低**績效（台股 Sharpe 0.18→0.08），故預設關閉。
+    """
     m = macd(df["close"], fast, slow, signal)
     buy = (m["macd"] > m["signal"]) & (m["macd"].shift(1) <= m["signal"].shift(1))
     sell = (m["macd"] < m["signal"]) & (m["macd"].shift(1) >= m["signal"].shift(1))
@@ -54,8 +57,12 @@ def macd_signal(df: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 
     return _to_position(buy, sell, df.index)
 
 
-def ma_cross_signal(df: pd.DataFrame, fast: int = 20, slow: int = 60, kind: str = "sma") -> pd.Series:
-    """均線黃金／死亡交叉（台股 20/60 月季線；美股 50/200）。回傳 1（快線在慢線上）/0。"""
+def ma_cross_signal(df: pd.DataFrame, fast: int = 50, slow: int = 200, kind: str = "sma") -> pd.Series:
+    """
+    均線黃金／死亡交叉。回傳 1（快線在慢線上）/0。
+    2026-09 驗證（docs/09）：50/200 是所有測試策略中 Sharpe 最高、盈虧比最高（約 4）、交易最少（10 年約 7 次）者，
+    且是唯一在多數台股上 Calmar 勝過買進持有的策略 → 作為**核心趨勢過濾／持有訊號**。台股 20/60 次之。
+    """
     f = (sma if kind == "sma" else ema)(df["close"], fast)
     s = (sma if kind == "sma" else ema)(df["close"], slow)
     pos = (f > s).astype(int)
@@ -63,11 +70,12 @@ def ma_cross_signal(df: pd.DataFrame, fast: int = 20, slow: int = 60, kind: str 
     return pos
 
 
-def breakout_signal(df: pd.DataFrame, entry_n: int = 55, exit_n: int = 20, vol_confirm: float | None = 1.5,
-                    adx_min: float | None = 20) -> pd.Series:
+def breakout_signal(df: pd.DataFrame, entry_n: int = 55, exit_n: int = 20, vol_confirm: float | None = None,
+                    adx_min: float | None = None) -> pd.Series:
     """
     通道突破（Donchian／海龜）：收盤創 entry_n 日新高買進，跌破 exit_n 日新低出場。
-    vol_confirm：突破日量比需 ≥ 此值（None 不檢查）。adx_min：ADX 需 ≥ 此值（過濾盤整假突破）。
+    vol_confirm：突破日量比需 ≥ 此值（None 不檢查）。adx_min：ADX 需 ≥ 此值。
+    2026-09 驗證（docs/09）：量比與 ADX 過濾在台美股都**降低** Sharpe 與 CAGR（漏掉太多有效突破），預設關閉。
     """
     hi = df["close"].shift(1).rolling(entry_n).max()
     lo = df["close"].shift(1).rolling(exit_n).min()

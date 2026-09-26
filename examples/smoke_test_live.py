@@ -43,7 +43,7 @@ def tw_tests():
         "TWSE 三大法人": run("TWSE 三大法人", lambda: tw_twse.fetch_institutional(last_trading)),
         "TWSE 融資融券": run("TWSE 融資融券", lambda: tw_twse.fetch_margin(last_trading)),
         "TWSE 即時 MIS": run("TWSE 即時 MIS", lambda: tw_twse.fetch_realtime(["2330", "2317"])),
-        "TPEx 日K 6213": run("TPEx 日K 6213", lambda: tw_tpex.fetch_daily_ohlcv("6213", start)),
+        "TPEx 日K 6488": run("TPEx 日K 6488", lambda: tw_tpex.fetch_daily_ohlcv("6488", start)),
         "TPEx 全市場": run("TPEx 全市場", tw_tpex.fetch_mainboard_quotes),
         "TPEx 三大法人": run("TPEx 三大法人", lambda: tw_tpex.fetch_institutional(last_trading)),
         "MOPS 月營收": run("MOPS 月營收", lambda: tw_mops.fetch_monthly_revenue(prev_month.year, prev_month.month)),

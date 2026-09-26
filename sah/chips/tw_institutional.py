@@ -1,9 +1,10 @@
 """
 台股籌碼面特徵。輸入為 sah.data.tw_finmind.fetch_institutional / fetch_margin 或 TWSE 逐日彙整後的時間序列。
 
-準則摘要（詳見 docs/05）：
-- 外資連續買超 ≥ 3 日且累計買超佔日均量比例高 → 中期偏多（外資為台股最大資金來源，持股逾 4 成）。
-- 投信買超在季底／月底作帳期（3、6、9、12 月下旬）訊號雜訊高，需降權。
+準則摘要（詳見 docs/05；2026-09 以 39 檔台股 10 年資料驗證，見 docs/09 §3）：
+- 「連續 N 日買超」**沒有**預測力（外資連 3 日買超後 20 日超額報酬 ≈ 0）；投信連 3 日買超後反而略為落後。
+- 有效的是**累計量**：外資 20 日累計買超 > 20 日總成交量 5% → 20 日超額約 +0.3%；累計賣超 > 5% → 約 -0.2%。
+  幅度不大，因此籌碼在綜合評分中權重下修為 0.15，定位為「確認」而非主訊號。
 - 融資餘額快速增加而股價不漲 → 散戶追高、籌碼轉弱；融資大減且價穩 → 籌碼沉澱。
 - 券資比 (short/margin) 高且價漲 → 可能軋空。
 """
@@ -21,7 +22,7 @@ def institutional_features(inst: pd.DataFrame, volume: pd.Series | None = None, 
       foreign_cum_w    外資 window 日累計買賣超
       total_cum_w      三大法人 window 日累計
       foreign_cum_ratio 外資累計買超 / window 日總成交量（需 volume）
-      inst_score       -3~+3 綜合分數
+      inst_score       -3~+3 綜合分數（以累計買賣超為主；連續天數僅保留為顯示用欄位）
     """
     out = pd.DataFrame(index=inst.index)
 
@@ -47,10 +48,13 @@ def institutional_features(inst: pd.DataFrame, volume: pd.Series | None = None, 
         v = volume.reindex(inst.index)
         out["foreign_cum_ratio"] = out["foreign_cum_w"] / v.rolling(window, min_periods=1).sum()
     score = pd.Series(0, index=inst.index, dtype=int)
-    score += (out["foreign_streak"] >= 3).astype(int) - (out["foreign_streak"] <= -3).astype(int)
-    score += (out["trust_streak"] >= 3).astype(int) - (out["trust_streak"] <= -3).astype(int)
+    if "foreign_cum_ratio" in out:
+        r = out["foreign_cum_ratio"]
+        score += (r > 0.05).astype(int) * 2 - (r < -0.05).astype(int) * 2   # 主訊號：外資累計佔量比
+    else:
+        score += (out["foreign_cum_w"] > 0).astype(int) - (out["foreign_cum_w"] < 0).astype(int)
     score += (out["total_cum_w"] > 0).astype(int) - (out["total_cum_w"] < 0).astype(int)
-    out["inst_score"] = score
+    out["inst_score"] = score.clip(-3, 3)
     return out
 
 

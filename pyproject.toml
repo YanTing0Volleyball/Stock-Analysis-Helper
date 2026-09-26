@@ -13,10 +13,11 @@ dependencies = [
     "pandas>=2.0",
     "numpy>=1.24",
     "requests>=2.31",
+    "lxml>=4.9",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "tabulate>=0.9"]
 news = ["feedparser>=6"]
 
 [tool.setuptools.packages.find]

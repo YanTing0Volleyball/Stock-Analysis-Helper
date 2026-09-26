@@ -55,47 +55,60 @@ def facts_to_series(facts: dict, tag: str, taxonomy: str = "us-gaap", unit: str 
     return df.reset_index(drop=True)
 
 
-def first_available(facts: dict, tags: list[str], **kw) -> pd.DataFrame:
-    for t in tags:
-        df = facts_to_series(facts, t, **kw)
-        if not df.empty:
-            return df
-    return pd.DataFrame()
+def merged_series(facts: dict, tags: list[str], **kw) -> pd.DataFrame:
+    """
+    合併多個同義標籤（公司會隨年代改用不同標籤，如 Apple 營收 2018 前 SalesRevenueNet、之後
+    RevenueFromContractWithCustomerExcludingAssessedTax），依 end 去重、保留最新 filed。
+    """
+    frames = [facts_to_series(facts, t, **kw) for t in tags]
+    frames = [f for f in frames if not f.empty]
+    if not frames:
+        return pd.DataFrame(columns=["end", "val", "fy", "fp", "form", "filed", "frame"])
+    df = pd.concat(frames).sort_values("filed").drop_duplicates(subset=["end", "fp"], keep="last")
+    return df.sort_values("end").reset_index(drop=True)
+
+
+first_available = merged_series  # 向後相容
 
 
 def fetch_fundamentals_summary(ticker: str) -> pd.DataFrame:
     """
     整理年度 (10-K, fp=FY) 基本面表：revenue, net_income, eps_diluted, equity, assets, liabilities,
-    operating_cf, capex, shares_out。index 為會計年度結束日。
+    operating_cf, capex, shares_out。index 為會計年度（以期末日的西元年表示，例如 Apple FY2025 期末 2025-09-27 → 2025），
+    另附 fiscal_year_end 欄。
     """
     facts = fetch_company_facts(ticker)
 
-    def annual(tags, taxonomy="us-gaap"):
-        df = first_available(facts, tags if isinstance(tags, list) else [tags], taxonomy=taxonomy, forms=("10-K",))
+    def annual(tags, taxonomy="us-gaap", flow=True):
+        df = merged_series(facts, tags if isinstance(tags, list) else [tags], taxonomy=taxonomy, forms=("10-K",))
         if df.empty:
             return pd.Series(dtype=float)
         df = df[df["fp"] == "FY"]
-        # 流量科目用 frame 含 'CY####'（整年）者，避免抓到季度值
-        if "frame" in df and df["frame"].notna().any():
+        if flow and "frame" in df and df["frame"].notna().any():
+            # 流量科目只取整年 frame (CY####)，避免 10-K 內揭露的季度值
             fy = df[df["frame"].fillna("").str.fullmatch(r"CY\d{4}")]
             if not fy.empty:
                 df = fy
-        return df.set_index("end")["val"].astype(float)
+        df = df.assign(year=df["end"].dt.year).drop_duplicates("year", keep="last")
+        return df.set_index("year")["val"].astype(float)
 
     out = pd.DataFrame(
         {
             "revenue": annual(REVENUE_TAGS),
             "net_income": annual("NetIncomeLoss"),
             "eps_diluted": annual("EarningsPerShareDiluted"),
-            "equity": annual("StockholdersEquity"),
-            "assets": annual("Assets"),
-            "liabilities": annual("Liabilities"),
+            "equity": annual("StockholdersEquity", flow=False),
+            "assets": annual("Assets", flow=False),
+            "liabilities": annual("Liabilities", flow=False),
             "operating_cf": annual("NetCashProvidedByUsedInOperatingActivities"),
             "capex": annual("PaymentsToAcquirePropertyPlantAndEquipment"),
-            "shares_out": annual("EntityCommonStockSharesOutstanding", taxonomy="dei"),
+            "shares_out": annual("EntityCommonStockSharesOutstanding", taxonomy="dei", flow=False),
         }
     )
-    out.index.name = "fiscal_year_end"
+    ends = merged_series(facts, ["NetIncomeLoss"], forms=("10-K",))
+    ends = ends[ends["fp"] == "FY"].assign(year=lambda d: d["end"].dt.year).drop_duplicates("year", keep="last")
+    out["fiscal_year_end"] = ends.set_index("year")["end"]
+    out.index.name = "fiscal_year"
     return out.sort_index()
 
 

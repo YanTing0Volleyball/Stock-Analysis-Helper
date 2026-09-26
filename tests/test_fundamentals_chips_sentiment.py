@@ -37,7 +37,21 @@ def test_institutional_streak_and_score():
     f = institutional_features(inst)
     assert list(f["foreign_streak"]) == [1, 2, 3, -1, -2, -3]
     assert f["trust_streak"].iloc[-1] == 5
-    assert f["inst_score"].iloc[2] == 2 and f["inst_score"].iloc[-1] == 1 - 1 + 1
+    # 無 volume 時：外資累計方向 ±1 + 三大法人累計方向 ±1
+    assert f["inst_score"].iloc[2] == 2 and f["inst_score"].iloc[-1] == 2
+    vol = pd.Series([1000.0] * 6, index=idx)  # 外資累計 600 / 6000 = 10% > 5% → +2
+    f2 = institutional_features(inst, vol)
+    assert f2["inst_score"].iloc[2] == 3
+
+
+def test_revenue_momentum():
+    from sah.fundamentals import revenue_momentum
+    idx = pd.period_range("2023-01", periods=26, freq="M").to_timestamp()
+    rev = pd.Series(np.r_[np.full(12, 100.0), np.linspace(105, 150, 14)], index=idx)
+    rm = revenue_momentum(rev)
+    assert rm["signal"].iloc[-1] == 1 and rm["new_12m_high"].iloc[-1]
+    falling = pd.Series(np.linspace(150, 80, 26), index=idx)
+    assert revenue_momentum(falling)["signal"].iloc[-1] == -1
 
 
 def test_margin_features_divergence():
