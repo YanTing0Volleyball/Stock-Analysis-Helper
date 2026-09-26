@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-analysis-helper"
+version = "0.2.0"
+description = "台股／美股量化分析模組：資料擷取、技術／基本／籌碼面指標、訊號、回測與風控"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-or-later"}
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+news = ["feedparser>=6"]
+
+[tool.setuptools.packages.find]
+include = ["sah*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
