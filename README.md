@@ -27,6 +27,7 @@ sah/               核心套件（見 docs/08 介面規格）
   backtest/        成本模型、回測引擎、績效、Deflated Sharpe、walk-forward
   risk/            ATR 部位、凱利、停損停利、投組限制
 docs/              研究文件與分析準則（繁體中文）
+analysis/          每家公司分析數據表（tw_companies.csv、us_companies.csv）
 tests/             pytest
 examples/          離線示範、線上煙霧測試、research/（資料下載與驗證腳本）
 legacy (根目錄)    原始 KD 爬蟲腳本：main.program.py, KD_*.py, data_update.py, KD_analyze/
@@ -46,6 +47,7 @@ legacy (根目錄)    原始 KD 爬蟲腳本：main.program.py, KD_*.py, data_up
 | [07 研究文獻](docs/07_research_references.md) | 學術與實務依據 |
 | [08 模組介面規格](docs/08_module_interface_spec.md) | 給後續開發模型 |
 | [09 真實資料驗證](docs/09_live_validation.md) | 2026-09 以 10 年台美股資料驗證策略與準則，並據此調整 |
+| [10 全市場驗證與 Walk-forward](docs/10_universe_walkforward.md) | 台股 1910 檔＋S&P 500 全市場驗證、walk-forward 參數檢驗、每家公司分析數據（analysis/） |
 
 ## 聲明
 所有訊號為歷史統計上的機率優勢，不構成投資建議；使用者需自負投資決策責任。

@@ -105,7 +105,8 @@ print(performance_summary(res.returns, res.equity, res.trades, res.positions))
 ## 6. 已知待辦（後續模型接手）
 - [x] 在有網路環境執行 `examples/smoke_test_live.py`，修正端點欄位差異（2026-09-26 完成，見 docs/02 §0）。
 - [ ] Form 4 XML 解析 → `insider_features` 的輸入表。
-- [x] 以 39 檔台股＋30 檔美股 10 年資料做第一輪校準（docs/09）；待擴大至全市場與 walk-forward。
+- [x] 以 39 檔台股＋30 檔美股 10 年資料做第一輪校準（docs/09）。
+- [x] 全市場（台 1910／美 499）驗證與 walk-forward（docs/10）；每家公司分析數據 `analysis/*.csv`（`sah.analysis.analyze_company`）。
 - [ ] 多檔投組回測與相關性控制。
 - [ ] 交易日曆（TWSE 休市表、NYSE 假日）模組。
 - [ ] 券商 API（Shioaji／IBKR）下單介面，與 `PortfolioLimits.check` 串接為下單前檢查。

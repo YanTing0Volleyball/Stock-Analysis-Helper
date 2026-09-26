@@ -142,7 +142,7 @@ def score_to_action(score: float, in_position: bool = False) -> str:
     分數 → 建議動作（帶遲滯，避免頻繁翻轉）：
       未持有：≥65 買進、55~64 觀察、<55 不動
       已持有：≤40 賣出、41~50 減碼、>50 續抱
-    門檻依 docs/09 §5：台股 technical_score 66~80 為未來報酬最佳區間，81+ 略降（勿追高，但續抱）。
+    門檻依 docs/09 §5 與 docs/10 §B：台股 technical_score 與未來 60 日報酬單調正相關（全市場 590 萬樣本）；美股大型股反向，請用 us_large_cap 權重。
     """
     if in_position:
         if score <= 40:

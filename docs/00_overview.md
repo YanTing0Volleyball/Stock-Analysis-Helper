@@ -48,6 +48,7 @@
 | `07_research_references.md` | 學術與實務研究摘要 |
 | `08_module_interface_spec.md` | 給後續開發模型的介面規格、資料流、擴充方式 |
 | `09_live_validation.md` | **2026-09 真實資料驗證報告**：策略比較、KD 敏感度、籌碼／月營收事件研究、技術分數分桶，以及據此做的調整 |
+| `10_universe_walkforward.md` | **全市場驗證＋walk-forward**：台股 1910 檔、S&P 500 499 檔；參數最佳化無價值、趨勢策略以一半報酬換三分之一回撤；每家公司分析數據在 `analysis/` |
 
 ## 4. 使用者情境對應
 
