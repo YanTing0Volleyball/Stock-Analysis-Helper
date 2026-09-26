@@ -15,7 +15,7 @@ import requests
 
 from ..config import settings
 from ..schema import standardize_ohlcv
-from .base import DataSourceError
+from .base import DataSourceError, PermanentError
 
 CHART = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}"
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -47,12 +47,16 @@ def _get_json(url: str, params: dict, retries: int = 3) -> dict:
             r = s.get(url, params={**params, "crumb": crumb}, timeout=settings.timeout)
             if r.status_code == 429:
                 raise DataSourceError("HTTP 429 (rate limited)")
+            if r.status_code == 404:
+                raise PermanentError(f"Yahoo 無此代號（可能已下市或未收錄）: {url}")
             if r.status_code in (401, 403):
                 global _session
                 _session = None  # 強制重新取得 crumb
                 raise DataSourceError(f"HTTP {r.status_code} (crumb 失效)")
             r.raise_for_status()
             return r.json()
+        except PermanentError:
+            raise
         except (requests.RequestException, DataSourceError, ValueError) as exc:
             last = exc
             time.sleep(1.5 * (attempt + 1))
